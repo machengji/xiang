@@ -1,7 +1,8 @@
 import { defineUniPages } from '@uni-helper/vite-plugin-uni-pages'
 import { tabBar } from './src/tabbar/config'
 
-export default defineUniPages({
+// 构建 pages 配置
+const pagesConfig: any = {
   globalStyle: {
     navigationStyle: 'default',
     navigationBarTitleText: 'unibest',
@@ -17,6 +18,11 @@ export default defineUniPages({
         'z-paging/components/z-paging$1/z-paging$1.vue',
     },
   },
-  // tabbar 的配置统一在 “./src/tabbar/config.ts” 文件中
-  tabBar: tabBar as any,
-})
+}
+
+// 只有当 tabBar 存在时才添加 tabBar 配置
+if (tabBar) {
+  pagesConfig.tabBar = tabBar as any
+}
+
+export default defineUniPages(pagesConfig)
