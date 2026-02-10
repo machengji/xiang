@@ -7,15 +7,56 @@ defineOptions({
 definePage({
   type: 'home',
   style: {
-    navigationStyle: 'custom',
-    navigationBarTitleText: '首页',
+    navigationBarTitleText: '诚心上香',
+    navigationBarBackgroundColor: '#ffffff',
+    navigationBarTextStyle: 'black',
   },
 })
+
+// 图片数据
+const imageData = ref([
+  {
+    id: 1,
+    src: '/static/guangong.jpg',
+    title: '关公',
+    description: '忠义千秋',
+  },
+  {
+    id: 2,
+    src: '/static/caisheng.jpg',
+    title: '财神',
+    description: '财源广进',
+  },
+  {
+    id: 3,
+    src: '/static/pudu.jpg',
+    title: '观音',
+    description: '普度众生',
+  },
+])
+
+// 当前选中的图片索引
+const currentImageIndex = ref(0)
 
 // 燃烧状态
 const isBurning = ref(false)
 const showBlessing = ref(false)
 const buttonText = ref('上香')
+
+// 标题和描述的可编辑性
+const currentTitle = ref('')
+const currentDescription = ref('')
+
+// 初始化和监听图片切换
+onMounted(() => {
+  currentTitle.value = imageData.value[currentImageIndex.value].title
+  currentDescription.value = imageData.value[currentImageIndex.value].description
+})
+
+function updateImageData() {
+  imageData.value[currentImageIndex.value].title = currentTitle.value
+  imageData.value[currentImageIndex.value].description = currentDescription.value
+}
 
 // 香烟高度（燃烧变短）
 const stickHeights = ref([140, 150, 140]) // 左中右三根香的高度
@@ -47,9 +88,9 @@ function createParticle(x: number, y: number): SmokeParticle {
     y,
     vx: (Math.random() - 0.5) * 0.5,
     vy: -Math.random() * 1.5 - 0.5,
-    size: Math.random() * 8 + 4,
+    size: Math.random() * 16 + 8, // 增大粒子尺寸
     life: 1,
-    decay: Math.random() * 0.005 + 0.003,
+    decay: Math.random() * 0.003 + 0.002, // 减慢衰减速度
   }
 }
 
@@ -68,8 +109,13 @@ function animate() {
       if (Math.random() < 0.4) {
         const offsetX = (i - 1) * 15
         // 根据当前香的高度计算烟雾位置
+        // 注意：Canvas 内部尺寸是 400x600，显示尺寸是 200x300
         const stickHeight = stickHeights.value[i]
-        smokeParticles.value.push(createParticle(canvas.width / 2 + offsetX, canvas.height - stickHeight))
+        const scaleY = 2 // 缩放比例
+        smokeParticles.value.push(createParticle(
+          canvas.width / 2 + offsetX * scaleY,
+          canvas.height - stickHeight * scaleY,
+        ))
       }
     }
   }
@@ -85,7 +131,7 @@ function animate() {
 
     // 绘制粒子
     ctx.save()
-    ctx.globalAlpha = particle.life * 0.3
+    ctx.globalAlpha = particle.life * 0.5 // 增加透明度
     const gradient = ctx.createRadialGradient(
       particle.x,
       particle.y,
@@ -94,9 +140,9 @@ function animate() {
       particle.y,
       particle.size,
     )
-    gradient.addColorStop(0, 'rgba(200, 200, 200, 0.8)')
-    gradient.addColorStop(0.4, 'rgba(150, 150, 150, 0.4)')
-    gradient.addColorStop(1, 'rgba(100, 100, 100, 0)')
+    gradient.addColorStop(0, 'rgba(220, 220, 220, 0.9)')
+    gradient.addColorStop(0.4, 'rgba(180, 180, 180, 0.5)')
+    gradient.addColorStop(1, 'rgba(150, 150, 150, 0)')
     ctx.fillStyle = gradient
     ctx.beginPath()
     ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
@@ -119,7 +165,7 @@ function startBurningEffect() {
     stickHeights.value = stickHeights.value.map((height, index) => {
       if (height > 20) {
         allBurned = false
-        return height - 0.3 // 慢慢燃烧变短
+        return height - 0.2 // 减慢燃烧速度，约60秒内烧完
       }
       return height
     })
@@ -137,19 +183,82 @@ function stopBurning() {
     clearInterval(burnInterval.value)
     burnInterval.value = null
   }
-  isBurning.value = false
-  buttonText.value = '再次上香'
   showBlessing.value = false
-  // 重置香的高度
+  // 5秒后允许重新上香
   setTimeout(() => {
+    isBurning.value = false
+    buttonText.value = '再次上香'
+    // 重置香的高度
     stickHeights.value = [...initialHeights]
-  }, 1000)
+  }, 5000)
+}
+
+// 切换到上一张图片
+function previousImage() {
+  currentImageIndex.value = (currentImageIndex.value - 1 + imageData.value.length) % imageData.value.length
+}
+
+// 切换到下一张图片
+function nextImage() {
+  currentImageIndex.value = (currentImageIndex.value + 1) % imageData.value.length
+}
+
+// 切换图片（顺序切换）
+function handleSwitch() {
+  currentImageIndex.value = (currentImageIndex.value + 1) % imageData.value.length
+  syncContent()
+}
+
+function syncContent() {
+  currentTitle.value = imageData.value[currentImageIndex.value].title
+  currentDescription.value = imageData.value[currentImageIndex.value].description
+}
+
+// 上传图片
+function handleUpload() {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      const tempFilePath = res.tempFilePaths[0]
+      const newItem = {
+        id: Date.now(),
+        src: tempFilePath,
+        title: '自定义',
+        description: '诚心祈福',
+      }
+      imageData.value.push(newItem)
+      currentImageIndex.value = imageData.value.length - 1
+      syncContent()
+    },
+  })
+}
+
+// 点击图片切换（随机切换）
+function switchImage() {
+  let newIndex
+  if (imageData.value.length <= 1)
+    return
+  do {
+    newIndex = Math.floor(Math.random() * imageData.value.length)
+  } while (newIndex === currentImageIndex.value)
+
+  currentImageIndex.value = newIndex
+  syncContent()
 }
 
 // 开始上香
 function startBurning() {
-  if (isBurning.value)
-    return
+  // 先清理之前的定时器，避免重复点击导致多个定时器同时运行
+  if (burnInterval.value) {
+    clearInterval(burnInterval.value)
+    burnInterval.value = null
+  }
+  if (animationId.value) {
+    cancelAnimationFrame(animationId.value)
+    animationId.value = null
+  }
 
   // 重置高度
   stickHeights.value = [...initialHeights]
@@ -170,11 +279,35 @@ function startBurning() {
 }
 
 onMounted(() => {
-  // 初始化 Canvas
-  if (smokeCanvas.value) {
-    smokeCanvas.value.width = 200
-    smokeCanvas.value.height = 300
-    canvasCtx.value = smokeCanvas.value.getContext('2d')
+  // 在 uni-app 中，对于 H5 平台我们可以直接操作 DOM
+  // 检查是否是 H5 平台（通过判断是否有 document 对象）
+  if (typeof document !== 'undefined') {
+    // 动态创建 Canvas 元素
+    const canvasContainer = document.querySelector('[ref="canvasContainer"]') || document.createElement('div')
+    const canvasElement = document.createElement('canvas')
+    canvasElement.id = 'smokeCanvas'
+    canvasElement.width = 400
+    canvasElement.height = 600
+    canvasElement.style.position = 'absolute'
+    canvasElement.style.left = '50%'
+    canvasElement.style.bottom = '0'
+    canvasElement.style.transform = 'translateX(-50%)'
+    canvasElement.style.width = '200px'
+    canvasElement.style.height = '300px'
+    canvasElement.style.pointerEvents = 'none'
+    canvasElement.style.zIndex = '10'
+
+    // 添加到 DOM
+    if (canvasContainer) {
+      canvasContainer.appendChild(canvasElement)
+    }
+
+    canvasCtx.value = canvasElement.getContext('2d')
+    console.log('Canvas context created:', canvasCtx.value)
+  }
+  else {
+    // 对于其他平台，我们可能需要使用 uni.createCanvasContext
+    // 这里可以添加其他平台的 Canvas 初始化代码
   }
 })
 
@@ -189,57 +322,73 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <view class="min-h-screen flex flex-col items-center bg-white px-4 pt-safe">
-    <!-- 顶部空白区域 -->
-    <view class="flex-1" />
+  <view class="min-h-screen flex flex-col items-center bg-white px-4">
+    <!-- 1. 顶部标题和按钮区域 - 支持编辑 -->
+    <view class="z-10 mb-2 mt-1 w-full flex flex-col items-center text-center">
+      <input
+        v-model="currentTitle"
+        class="w-full border-none bg-transparent text-center text-2xl text-red-900 font-bold tracking-widest focus:outline-none"
+        placeholder="请输入标题"
+        @blur="updateImageData"
+      >
+      <input
+        v-model="currentDescription"
+        class="mt-0.5 w-full border-none bg-transparent text-center text-sm text-gray-600 italic focus:outline-none"
+        placeholder="请输入描述"
+        @blur="updateImageData"
+      >
+    </view>
 
-    <!-- 图片和香烟区域 -->
-    <view class="relative mb-4 max-w-400 w-full">
-      <!-- 关公图片 - 在香烟上方 -->
-      <view class="guangong-wrapper">
+    <!-- 2. 内容核心区 -->
+    <view class="relative w-full flex flex-col items-center">
+      <!-- 神像图片 - 改为相对定位，自然排在文字下方 -->
+      <view class="guangong-container">
         <image
-          src="/static/guangong.jpg"
-          alt="关公"
-          class="guangong-image"
+          :src="imageData[currentImageIndex].src"
+          :alt="imageData[currentImageIndex].title"
+          class="guangong-main-img"
           mode="aspectFit"
+          @click="switchImage"
         />
       </view>
 
-      <!-- 香烟容器 - 在图片后方 -->
-      <view v-show="isBurning" class="incense-wrapper">
+      <!-- 香烟容器 - 放在神像和桌子之间 -->
+      <view v-show="isBurning" class="incense-overlay">
         <view class="incense-container">
-          <!-- 烟雾 Canvas -->
-          <canvas id="smokeCanvas" ref="smokeCanvas" />
-          <!-- 三根香烟 -->
-          <view
-            class="incense-stick stick-left"
-            :style="{ height: `${stickHeights[0]}px` }"
-          />
-          <view
-            class="incense-stick stick-center"
-            :style="{ height: `${stickHeights[1]}px` }"
-          />
-          <view
-            class="incense-stick stick-right"
-            :style="{ height: `${stickHeights[2]}px` }"
-          />
+          <view ref="canvasContainer" />
+          <view class="incense-stick stick-left" :style="{ height: `${stickHeights[0]}px` }" />
+          <view class="incense-stick stick-center" :style="{ height: `${stickHeights[1]}px` }" />
+          <view class="incense-stick stick-right" :style="{ height: `${stickHeights[2]}px` }" />
         </view>
       </view>
 
-      <!-- 图片 - 在香烟前方 -->
-      <image src="/static/desk.png" alt="desk" class="desk-image h-auto w-full" mode="widthFix" />
+      <!-- 桌子图片 - 使用负 margin 向上移动，遮挡神像底部 -->
+      <image src="/static/desk.png" alt="desk" class="desk-display" mode="widthFix" />
     </view>
 
     <!-- 上香按钮 - 靠下位置 -->
     <view class="button-wrapper">
       <button
-        class="burn-btn"
+        class="burn-btn flex items-center justify-center"
         :class="{ burning: isBurning }"
-        :disabled="isBurning"
         @click="startBurning"
       >
-        {{ buttonText }}
+        <view v-if="!isBurning" class="i-carbon-fire text-3xl" />
+        <view v-else class="i-carbon-hourglass text-3xl" />
       </button>
+    </view>
+
+    <!-- 底部浮动工具栏 -->
+    <view class="floating-toolbar">
+      <view class="toolbar-btn" @click="handleSwitch">
+        <view class="i-carbon-rotate text-lg" />
+        <text class="toolbar-label">切换</text>
+      </view>
+      <view class="toolbar-divider" />
+      <view class="toolbar-btn" @click="handleUpload">
+        <view class="i-carbon-upload text-lg" />
+        <text class="toolbar-label">上传</text>
+      </view>
     </view>
 
     <!-- 底部留白 -->
@@ -248,40 +397,119 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* 关公图片包装器 */
-.guangong-wrapper {
-  position: absolute;
+/* 图片标题样式 */
+.text-center {
+  text-align: center;
+}
+
+.text-3xl {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.text-red-900 {
+  color: #7f1d1d;
+}
+
+.text-gray-600 {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.mt-1 {
+  margin-top: 4px;
+}
+
+.mt-6 {
+  margin-top: 24px;
+}
+
+.mb-6 {
+  margin-bottom: 24px;
+}
+
+.tracking-widest {
+  letter-spacing: 0.1em;
+}
+
+.italic {
+  font-style: italic;
+}
+
+/* 底部浮动工具栏 */
+.floating-toolbar {
+  position: fixed;
+  bottom: 70px;
   left: 50%;
-  bottom: 65%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 6px 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  color: #7f1d1d;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.toolbar-btn:active {
+  opacity: 0.5;
+}
+
+.toolbar-label {
+  font-size: 12px;
+  color: #7f1d1d;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(127, 29, 29, 0.15);
+}
+
+/* 神像容器 - 不再使用绝对定位漂浮 */
+.guangong-container {
+  width: 240px;
+  height: 300px;
   z-index: 0;
-  width: 200px;
-  height: 250px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.guangong-image {
+.guangong-main-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  cursor: pointer;
 }
 
-/* 香烟包装器 - 在图片后方 */
-.incense-wrapper {
+/* 香烟层 - 绝对定位在桌子上方 */
+.incense-overlay {
   position: absolute;
   left: 50%;
-  bottom: 55%;
+  bottom: 150px; /* 继续向上移动香烟位置 */
   transform: translateX(-50%);
   z-index: 1;
 }
 
-/* 桌子图片 - 在香烟前方 */
-.desk-image {
+/* 桌子显示 - 向上移动覆盖图片底部 */
+.desk-display {
+  width: 100%;
+  height: auto;
   position: relative;
   z-index: 2;
-  margin-top: 40px;
+  margin-top: -20px; /* 显著减小负边距，使其向下移动 */
 }
 
 /* 香烟容器 */
@@ -352,41 +580,48 @@ onUnmounted(() => {
 #smokeCanvas {
   position: absolute;
   left: 50%;
-  bottom: 100%;
+  bottom: 0;
   transform: translateX(-50%);
   width: 200px;
   height: 300px;
   pointer-events: none;
+  z-index: 10;
 }
 
 /* 按钮包装器 - 靠下 */
 .button-wrapper {
-  margin-top: 30px;
-  margin-bottom: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
-/* 上香按钮 - 变小 */
+/* 上香按钮 - 圆形大按钮 */
 .burn-btn {
-  padding: 12px 40px;
-  font-size: 18px;
-  font-weight: bold;
+  width: 60px;
+  height: 60px;
   color: #fff;
-  background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%);
+  background: linear-gradient(135deg, #e11d48 0%, #9f1239 100%);
   border: none;
-  border-radius: 25px;
-  box-shadow: 0 4px 15px rgba(139, 0, 0, 0.4);
+  border-radius: 50%;
+  box-shadow:
+    0 10px 20px -5px rgba(159, 18, 57, 0.4),
+    inset 0 -4px 0 rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', 'SimSun', serif;
-  letter-spacing: 4px;
-  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .burn-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96) translateY(2px);
+  box-shadow: 0 5px 10px -3px rgba(159, 18, 57, 0.5);
 }
 
 .burn-btn.burning {
-  background: linear-gradient(135deg, #666 0%, #333 100%);
-  opacity: 0.8;
+  background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
+  box-shadow: none;
+  opacity: 0.9;
 }
 </style>
